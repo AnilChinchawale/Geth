@@ -18,7 +18,6 @@
 package ethstats
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -427,15 +426,21 @@ type blockStats struct {
 	GasLimit   *big.Int       `json:"gasLimit"`
 	Diff       string         `json:"difficulty"`
 	TotalDiff  string         `json:"totalDifficulty"`
-	Txs        []txStats      `json:"transactions"`
+	Txs        txStats        `json:"transactions"`
 	TxHash     common.Hash    `json:"transactionsRoot"`
 	Root       common.Hash    `json:"stateRoot"`
 	Uncles     uncleStats     `json:"uncles"`
 }
 
-// txStats is the information to report about individual transactions.
-type txStats struct {
-	Hash common.Hash `json:"hash"`
+// txStats is a custom wrapper around a transaction array to force serializing
+// empty arrays instead of returning null for them.
+type txStats []*types.Transaction
+
+func (s txStats) MarshalJSON() ([]byte, error) {
+	if txs := ([]*types.Transaction)(s); len(txs) > 0 {
+		return json.Marshal(txs)
+	}
+	return []byte("[]"), nil
 }
 
 // uncleStats is a custom wrapper around an uncle array to force serializing
@@ -474,7 +479,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 	var (
 		header *types.Header
 		td     *big.Int
-		txs    []txStats
+		txs    []*types.Transaction
 		uncles []*types.Header
 	)
 	if s.eth != nil {
@@ -485,10 +490,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		header = block.Header()
 		td = s.eth.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
 
-		txs = make([]txStats, len(block.Transactions()))
-		for i, tx := range block.Transactions() {
-			txs[i].Hash = tx.Hash()
-		}
+		txs = block.Transactions()
 		uncles = block.Uncles()
 	} else {
 		// Light nodes would need on-demand lookups for transactions/uncles, skip
@@ -498,7 +500,6 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 			header = s.les.BlockChain().CurrentHeader()
 		}
 		td = s.les.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
-		txs = []txStats{}
 	}
 	// Assemble and return the block stats
 	author, _ := s.engine.Author(header)
@@ -638,8 +639,7 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		sync := s.eth.Downloader().Progress()
 		syncing = s.eth.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
 
-		price, _ := s.eth.ApiBackend.SuggestPrice(context.Background())
-		gasprice = int(price.Uint64())
+		gasprice = int(s.eth.Miner().GasPrice().Uint64())
 	} else {
 		sync := s.les.Downloader().Progress()
 		syncing = s.les.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock

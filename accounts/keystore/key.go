@@ -124,13 +124,14 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	privkey, err := crypto.HexToECDSA(keyJSON.PrivateKey)
+
+	privkey, err := hex.DecodeString(keyJSON.PrivateKey)
 	if err != nil {
 		return err
 	}
 
 	k.Address = common.BytesToAddress(addr)
-	k.PrivateKey = privkey
+	k.PrivateKey = crypto.ToECDSA(privkey)
 
 	return nil
 }

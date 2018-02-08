@@ -32,8 +32,7 @@ import (
 )
 
 const (
-	DefaultHTTPListenAddr = "127.0.0.1"
-	DefaultHTTPPort       = "8500"
+	port = "8500"
 )
 
 var (
@@ -49,13 +48,12 @@ type Config struct {
 	*network.HiveParams
 	Swap *swap.SwapParams
 	*network.SyncParams
-	Path       string
-	ListenAddr string
-	Port       string
-	PublicKey  string
-	BzzKey     string
-	EnsRoot    common.Address
-	NetworkId  uint64
+	Path      string
+	Port      string
+	PublicKey string
+	BzzKey    string
+	EnsRoot   common.Address
+	NetworkId uint64
 }
 
 // config is agnostic to where private key is coming from
@@ -78,8 +76,7 @@ func NewConfig(path string, contract common.Address, prvKey *ecdsa.PrivateKey, n
 		HiveParams:    network.NewHiveParams(dirpath),
 		ChunkerParams: storage.NewChunkerParams(),
 		StoreParams:   storage.NewStoreParams(dirpath),
-		ListenAddr:    DefaultHTTPListenAddr,
-		Port:          DefaultHTTPPort,
+		Port:          port,
 		Path:          dirpath,
 		Swap:          swap.DefaultSwapParams(contract, prvKey),
 		PublicKey:     pubkeyhex,

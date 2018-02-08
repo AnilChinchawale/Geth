@@ -237,12 +237,12 @@ func (self *manifestTrie) addEntry(entry *manifestTrieEntry, quitC chan bool) {
 	}
 
 	b := byte(entry.Path[0])
-	oldentry := self.entries[b]
-	if (oldentry == nil) || (oldentry.Path == entry.Path && oldentry.ContentType != ManifestType) {
+	if (self.entries[b] == nil) || (self.entries[b].Path == entry.Path) {
 		self.entries[b] = entry
 		return
 	}
 
+	oldentry := self.entries[b]
 	cpl := 0
 	for (len(entry.Path) > cpl) && (len(oldentry.Path) > cpl) && (entry.Path[cpl] == oldentry.Path[cpl]) {
 		cpl++

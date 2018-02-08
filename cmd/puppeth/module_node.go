@@ -40,7 +40,7 @@ ADD genesis.json /genesis.json
 RUN \
   echo '/geth init /genesis.json' > geth.sh && \{{if .Unlock}}
 	echo 'mkdir -p /root/.ethereum/keystore/ && cp /signer.json /root/.ethereum/keystore/' >> geth.sh && \{{end}}
-	echo $'/geth --networkid {{.NetworkID}} --cache 512 --port {{.Port}} --maxpeers {{.Peers}} {{.LightFlag}} --ethstats \'{{.Ethstats}}\' {{if .BootV4}}--bootnodesv4 {{.BootV4}}{{end}} {{if .BootV5}}--bootnodesv5 {{.BootV5}}{{end}} {{if .Etherbase}}--etherbase {{.Etherbase}} --mine{{end}}{{if .Unlock}}--unlock 0 --password /signer.pass --mine{{end}} --targetgaslimit {{.GasTarget}} --gasprice {{.GasPrice}}' >> geth.sh
+	echo $'/geth --networkid {{.NetworkID}} --cache 512 --port {{.Port}} --maxpeers {{.Peers}} {{.LightFlag}} --ethstats \'{{.Ethstats}}\' {{if .Bootnodes}}--bootnodes {{.Bootnodes}}{{end}} {{if .Etherbase}}--etherbase {{.Etherbase}} --mine{{end}}{{if .Unlock}}--unlock 0 --password /signer.pass --mine{{end}}' >> geth.sh
 
 ENTRYPOINT ["/bin/sh", "geth.sh"]
 `
@@ -66,20 +66,17 @@ services:
       - LIGHT_PEERS={{.LightPeers}}
       - STATS_NAME={{.Ethstats}}
       - MINER_NAME={{.Etherbase}}
-      - GAS_TARGET={{.GasTarget}}
-      - GAS_PRICE={{.GasPrice}}
     restart: always
 `
 
 // deployNode deploys a new Ethereum node container to a remote machine via SSH,
 // docker and docker-compose. If an instance with the specified network name
 // already exists there, it will be overwritten!
-func deployNode(client *sshClient, network string, bootv4, bootv5 []string, config *nodeInfos) ([]byte, error) {
+func deployNode(client *sshClient, network string, bootnodes []string, config *nodeInfos) ([]byte, error) {
 	kind := "sealnode"
 	if config.keyJSON == "" && config.etherbase == "" {
 		kind = "bootnode"
-		bootv4 = make([]string, 0)
-		bootv5 = make([]string, 0)
+		bootnodes = make([]string, 0)
 	}
 	// Generate the content to upload to the server
 	workdir := fmt.Sprintf("%d", rand.Int63())
@@ -95,12 +92,9 @@ func deployNode(client *sshClient, network string, bootv4, bootv5 []string, conf
 		"Port":      config.portFull,
 		"Peers":     config.peersTotal,
 		"LightFlag": lightFlag,
-		"BootV4":    strings.Join(bootv4, ","),
-		"BootV5":    strings.Join(bootv5, ","),
+		"Bootnodes": strings.Join(bootnodes, ","),
 		"Ethstats":  config.ethstats,
 		"Etherbase": config.etherbase,
-		"GasTarget": uint64(1000000 * config.gasTarget),
-		"GasPrice":  uint64(1000000000 * config.gasPrice),
 		"Unlock":    config.keyJSON != "",
 	})
 	files[filepath.Join(workdir, "Dockerfile")] = dockerfile.Bytes()
@@ -117,8 +111,6 @@ func deployNode(client *sshClient, network string, bootv4, bootv5 []string, conf
 		"LightPeers": config.peersLight,
 		"Ethstats":   config.ethstats[:strings.Index(config.ethstats, ":")],
 		"Etherbase":  config.etherbase,
-		"GasTarget":  config.gasTarget,
-		"GasPrice":   config.gasPrice,
 	})
 	files[filepath.Join(workdir, "docker-compose.yaml")] = composefile.Bytes()
 
@@ -135,7 +127,7 @@ func deployNode(client *sshClient, network string, bootv4, bootv5 []string, conf
 	}
 	defer client.Run("rm -rf " + workdir)
 
-	// Build and deploy the boot or seal node service
+	// Build and deploy the bootnode service
 	return nil, client.Stream(fmt.Sprintf("cd %s && docker-compose -p %s up -d --build", workdir, network))
 }
 
@@ -155,8 +147,6 @@ type nodeInfos struct {
 	etherbase  string
 	keyJSON    string
 	keyPass    string
-	gasTarget  float64
-	gasPrice   float64
 }
 
 // String implements the stringer interface.
@@ -165,8 +155,7 @@ func (info *nodeInfos) String() string {
 	if info.peersLight > 0 {
 		discv5 = fmt.Sprintf(", portv5=%d", info.portLight)
 	}
-	return fmt.Sprintf("port=%d%s, datadir=%s, peers=%d, lights=%d, ethstats=%s, gastarget=%0.3f MGas, gasprice=%0.3f GWei",
-		info.portFull, discv5, info.datadir, info.peersTotal, info.peersLight, info.ethstats, info.gasTarget, info.gasPrice)
+	return fmt.Sprintf("port=%d%s, datadir=%s, peers=%d, lights=%d, ethstats=%s", info.portFull, discv5, info.datadir, info.peersTotal, info.peersLight, info.ethstats)
 }
 
 // checkNode does a health-check against an boot or seal node server to verify
@@ -187,8 +176,6 @@ func checkNode(client *sshClient, network string, boot bool) (*nodeInfos, error)
 	// Resolve a few types from the environmental variables
 	totalPeers, _ := strconv.Atoi(infos.envvars["TOTAL_PEERS"])
 	lightPeers, _ := strconv.Atoi(infos.envvars["LIGHT_PEERS"])
-	gasTarget, _ := strconv.ParseFloat(infos.envvars["GAS_TARGET"], 64)
-	gasPrice, _ := strconv.ParseFloat(infos.envvars["GAS_PRICE"], 64)
 
 	// Container available, retrieve its node ID and its genesis json
 	var out []byte
@@ -226,8 +213,6 @@ func checkNode(client *sshClient, network string, boot bool) (*nodeInfos, error)
 		etherbase:  infos.envvars["MINER_NAME"],
 		keyJSON:    keyJSON,
 		keyPass:    keyPass,
-		gasTarget:  gasTarget,
-		gasPrice:   gasPrice,
 	}
 	stats.enodeFull = fmt.Sprintf("enode://%s@%s:%d", id, client.address, stats.portFull)
 	if stats.portLight != 0 {

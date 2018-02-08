@@ -21,6 +21,8 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	// "github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 )
@@ -36,24 +38,24 @@ type TestManager struct {
 	Blocks     []*types.Block
 }
 
-func (tm *TestManager) IsListening() bool {
+func (s *TestManager) IsListening() bool {
 	return false
 }
 
-func (tm *TestManager) IsMining() bool {
+func (s *TestManager) IsMining() bool {
 	return false
 }
 
-func (tm *TestManager) PeerCount() int {
+func (s *TestManager) PeerCount() int {
 	return 0
 }
 
-func (tm *TestManager) Peers() *list.List {
+func (s *TestManager) Peers() *list.List {
 	return list.New()
 }
 
-func (tm *TestManager) BlockChain() *BlockChain {
-	return tm.blockChain
+func (s *TestManager) BlockChain() *BlockChain {
+	return s.blockChain
 }
 
 func (tm *TestManager) TxPool() *TxPool {

@@ -17,7 +17,6 @@
 package params
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -39,9 +38,6 @@ var (
 	TestNetSpuriousDragon = big.NewInt(10)
 	MainNetSpuriousDragon = big.NewInt(2675000)
 
-	TestNetMetropolisBlock = big.NewInt(math.MaxInt64)
-	MainNetMetropolisBlock = big.NewInt(math.MaxInt64)
-
-	TestNetChainID = big.NewInt(3) // Test net default chain ID
-	MainNetChainID = big.NewInt(1) // main net default chain ID
+	TestNetChainID = big.NewInt(3) // Testnet default chain ID
+	MainNetChainID = big.NewInt(1) // Mainnet default chain ID
 )

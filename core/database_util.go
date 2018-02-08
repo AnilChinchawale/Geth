@@ -64,7 +64,7 @@ var (
 	oldBlockReceiptsPrefix = []byte("receipts-block-")
 	oldBlockHashPrefix     = []byte("block-hash-") // [deprecated by the header/block split, remove eventually]
 
-	ErrChainConfigNotFound = errors.New("ChainConfig not found") // general config not found error
+	ChainConfigNotFoundErr = errors.New("ChainConfig not found") // general config not found error
 
 	mipmapBloomMu sync.Mutex // protect against race condition when updating mipmap blooms
 
@@ -546,7 +546,7 @@ func mipmapKey(num, level uint64) []byte {
 	return append(mipmapPre, append(lkey, key.Bytes()...)...)
 }
 
-// WriteMipmapBloom writes each address included in the receipts' logs to the
+// WriteMapmapBloom writes each address included in the receipts' logs to the
 // MIP bloom bin.
 func WriteMipmapBloom(db ethdb.Database, number uint64, receipts types.Receipts) error {
 	mipmapBloomMu.Lock()
@@ -638,7 +638,7 @@ func WriteChainConfig(db ethdb.Database, hash common.Hash, cfg *params.ChainConf
 func GetChainConfig(db ethdb.Database, hash common.Hash) (*params.ChainConfig, error) {
 	jsonChainConfig, _ := db.Get(append(configPrefix, hash[:]...))
 	if len(jsonChainConfig) == 0 {
-		return nil, ErrChainConfigNotFound
+		return nil, ChainConfigNotFoundErr
 	}
 
 	var config params.ChainConfig

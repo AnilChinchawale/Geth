@@ -44,7 +44,7 @@ import (
 const (
 	checkpointInterval = 1024 // Number of blocks after which to save the vote snapshot to the database
 	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
-	inmemorySignatures = 4096 // Number of recent block signatures to keep in memory
+	inmemorySignatures = 1024 // Number of recent blocks to keep in memory
 
 	wiggleTime = 500 * time.Millisecond // Random delay (per signer) to allow concurrent signers
 )
@@ -162,12 +162,7 @@ func sigHash(header *types.Header) (hash common.Hash) {
 }
 
 // ecrecover extracts the Ethereum account address from a signed header.
-func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, error) {
-	// If the signature's already cached, return that
-	hash := header.Hash()
-	if address, known := sigcache.Get(hash); known {
-		return address.(common.Address), nil
-	}
+func ecrecover(header *types.Header) (common.Address, error) {
 	// Retrieve the signature from the header extra-data
 	if len(header.Extra) < extraSeal {
 		return common.Address{}, errMissingSignature
@@ -182,7 +177,6 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	var signer common.Address
 	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
 
-	sigcache.Add(hash, signer)
 	return signer, nil
 }
 
@@ -229,7 +223,7 @@ func New(config *params.CliqueConfig, db ethdb.Database) *Clique {
 // Author implements consensus.Engine, returning the Ethereum address recovered
 // from the signature in the header's extra-data section.
 func (c *Clique) Author(header *types.Header) (common.Address, error) {
-	return ecrecover(header, c.signatures)
+	return ecrecover(header)
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules.
@@ -375,7 +369,7 @@ func (c *Clique) snapshot(chain consensus.ChainReader, number uint64, hash commo
 		}
 		// If an on-disk checkpoint snapshot can be found, use that
 		if number%checkpointInterval == 0 {
-			if s, err := loadSnapshot(c.config, c.signatures, c.db, hash); err == nil {
+			if s, err := loadSnapshot(c.config, c.db, hash); err == nil {
 				log.Trace("Loaded voting snapshot form disk", "number", number, "hash", hash)
 				snap = s
 				break
@@ -391,7 +385,7 @@ func (c *Clique) snapshot(chain consensus.ChainReader, number uint64, hash commo
 			for i := 0; i < len(signers); i++ {
 				copy(signers[i][:], genesis.Extra[extraVanity+i*common.AddressLength:])
 			}
-			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers)
+			snap = newSnapshot(c.config, 0, genesis.Hash(), signers)
 			if err := snap.store(c.db); err != nil {
 				return nil, err
 			}
@@ -470,7 +464,7 @@ func (c *Clique) verifySeal(chain consensus.ChainReader, header *types.Header, p
 	c.recents.Add(snap.Hash, snap)
 
 	// Resolve the authorization key and check against signers
-	signer, err := ecrecover(header, c.signatures)
+	signer, err := ecrecover(header)
 	if err != nil {
 		return err
 	}

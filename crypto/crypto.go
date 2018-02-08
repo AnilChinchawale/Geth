@@ -22,14 +22,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -78,22 +76,23 @@ func CreateAddress(b common.Address, nonce uint64) common.Address {
 }
 
 // ToECDSA creates a private key with the given D value.
-func ToECDSA(d []byte) (*ecdsa.PrivateKey, error) {
+func ToECDSA(prv []byte) *ecdsa.PrivateKey {
+	if len(prv) == 0 {
+		return nil
+	}
+
 	priv := new(ecdsa.PrivateKey)
 	priv.PublicKey.Curve = S256()
-	if 8*len(d) != priv.Params().BitSize {
-		return nil, fmt.Errorf("invalid length, need %d bits", priv.Params().BitSize)
-	}
-	priv.D = new(big.Int).SetBytes(d)
-	priv.PublicKey.X, priv.PublicKey.Y = priv.PublicKey.Curve.ScalarBaseMult(d)
-	return priv, nil
+	priv.D = new(big.Int).SetBytes(prv)
+	priv.PublicKey.X, priv.PublicKey.Y = priv.PublicKey.Curve.ScalarBaseMult(prv)
+	return priv
 }
 
 func FromECDSA(prv *ecdsa.PrivateKey) []byte {
 	if prv == nil {
 		return nil
 	}
-	return math.PaddedBigBytes(prv.D, 32)
+	return prv.D.Bytes()
 }
 
 func ToECDSAPub(pub []byte) *ecdsa.PublicKey {
@@ -117,7 +116,10 @@ func HexToECDSA(hexkey string) (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		return nil, errors.New("invalid hex string")
 	}
-	return ToECDSA(b)
+	if len(b) != 32 {
+		return nil, errors.New("invalid length, need 256 bits")
+	}
+	return ToECDSA(b), nil
 }
 
 // LoadECDSA loads a secp256k1 private key from the given file.
@@ -137,7 +139,8 @@ func LoadECDSA(file string) (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ToECDSA(key)
+
+	return ToECDSA(key), nil
 }
 
 // SaveECDSA saves a secp256k1 private key to the given file with

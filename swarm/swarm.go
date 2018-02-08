@@ -21,7 +21,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"net"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -167,13 +166,13 @@ Start is called when the stack is started
 * TODO: start subservices like sword, swear, swarmdns
 */
 // implements the node.Service interface
-func (self *Swarm) Start(srv *p2p.Server) error {
+func (self *Swarm) Start(net *p2p.Server) error {
 	connectPeer := func(url string) error {
 		node, err := discover.ParseNode(url)
 		if err != nil {
 			return fmt.Errorf("invalid node URL: %v", err)
 		}
-		srv.AddPeer(node)
+		net.AddPeer(node)
 		return nil
 	}
 	// set chequebook
@@ -190,8 +189,8 @@ func (self *Swarm) Start(srv *p2p.Server) error {
 
 	log.Warn(fmt.Sprintf("Starting Swarm service"))
 	self.hive.Start(
-		discover.PubkeyID(&srv.PrivateKey.PublicKey),
-		func() string { return srv.ListenAddr },
+		discover.PubkeyID(&net.PrivateKey.PublicKey),
+		func() string { return net.ListenAddr },
 		connectPeer,
 	)
 	log.Info(fmt.Sprintf("Swarm network started on bzz address: %v", self.hive.Addr()))
@@ -201,16 +200,17 @@ func (self *Swarm) Start(srv *p2p.Server) error {
 
 	// start swarm http proxy server
 	if self.config.Port != "" {
-		addr := net.JoinHostPort(self.config.ListenAddr, self.config.Port)
+		addr := ":" + self.config.Port
 		go httpapi.StartHttpServer(self.api, &httpapi.ServerConfig{
 			Addr:       addr,
 			CorsString: self.corsString,
 		})
-		log.Info(fmt.Sprintf("Swarm http proxy started on %v", addr))
+	}
 
-		if self.corsString != "" {
-			log.Debug(fmt.Sprintf("Swarm http proxy started with corsdomain: %v", self.corsString))
-		}
+	log.Debug(fmt.Sprintf("Swarm http proxy started on port: %v", self.config.Port))
+
+	if self.corsString != "" {
+		log.Debug(fmt.Sprintf("Swarm http proxy started with corsdomain: %v", self.corsString))
 	}
 
 	return nil

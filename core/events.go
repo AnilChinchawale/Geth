@@ -17,6 +17,8 @@
 package core
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
@@ -41,7 +43,7 @@ type NewMinedBlockEvent struct{ Block *types.Block }
 // RemovedTransactionEvent is posted when a reorg happens
 type RemovedTransactionEvent struct{ Txs types.Transactions }
 
-// RemovedLogsEvent is posted when a reorg happens
+// RemovedLogEvent is posted when a reorg happens
 type RemovedLogsEvent struct{ Logs []*types.Log }
 
 type ChainEvent struct {
@@ -64,6 +66,8 @@ type ChainUncleEvent struct {
 }
 
 type ChainHeadEvent struct{ Block *types.Block }
+
+type GasPriceChanged struct{ Price *big.Int }
 
 // Mining operation events
 type StartMining struct{}

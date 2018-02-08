@@ -73,7 +73,6 @@ type State interface {
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
-	nonceLock := new(AddrLocker)
 	return []rpc.API{
 		{
 			Namespace: "eth",
@@ -88,7 +87,7 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
+			Service:   NewPublicTransactionPoolAPI(apiBackend),
 			Public:    true,
 		}, {
 			Namespace: "txpool",
@@ -112,7 +111,7 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 		}, {
 			Namespace: "personal",
 			Version:   "1.0",
-			Service:   NewPrivateAccountAPI(apiBackend, nonceLock),
+			Service:   NewPrivateAccountAPI(apiBackend),
 			Public:    false,
 		},
 	}

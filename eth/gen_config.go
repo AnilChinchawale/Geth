@@ -33,7 +33,6 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		EthashDatasetDir        string
 		EthashDatasetsInMem     int
 		EthashDatasetsOnDisk    int
-		TxPool                  core.TxPoolConfig
 		GPO                     gasprice.Config
 		EnablePreimageRecording bool
 		DocRoot                 string `toml:"-"`
@@ -61,7 +60,6 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.EthashDatasetDir = c.EthashDatasetDir
 	enc.EthashDatasetsInMem = c.EthashDatasetsInMem
 	enc.EthashDatasetsOnDisk = c.EthashDatasetsOnDisk
-	enc.TxPool = c.TxPool
 	enc.GPO = c.GPO
 	enc.EnablePreimageRecording = c.EnablePreimageRecording
 	enc.DocRoot = c.DocRoot
@@ -92,7 +90,6 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		EthashDatasetDir        *string
 		EthashDatasetsInMem     *int
 		EthashDatasetsOnDisk    *int
-		TxPool                  *core.TxPoolConfig
 		GPO                     *gasprice.Config
 		EnablePreimageRecording *bool
 		DocRoot                 *string `toml:"-"`
@@ -160,9 +157,6 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	}
 	if dec.EthashDatasetsOnDisk != nil {
 		c.EthashDatasetsOnDisk = *dec.EthashDatasetsOnDisk
-	}
-	if dec.TxPool != nil {
-		c.TxPool = *dec.TxPool
 	}
 	if dec.GPO != nil {
 		c.GPO = *dec.GPO

@@ -19,6 +19,7 @@ package miner
 
 import (
 	"fmt"
+	"math/big"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -101,6 +102,18 @@ out:
 			break out
 		}
 	}
+}
+
+func (m *Miner) GasPrice() *big.Int {
+	return new(big.Int).Set(m.worker.gasPrice)
+}
+
+func (m *Miner) SetGasPrice(price *big.Int) {
+	// FIXME block tests set a nil gas price. Quick dirty fix
+	if price == nil {
+		return
+	}
+	m.worker.setGasPrice(price)
 }
 
 func (self *Miner) Start(coinbase common.Address) {

@@ -239,7 +239,7 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 		return errZeroBlockTime
 	}
 	// Verify the block's difficulty based in it's timestamp and parent's difficulty
-	expected := CalcDifficulty(chain.Config(), header.Time.Uint64(), parent)
+	expected := CalcDifficulty(chain.Config(), header.Time.Uint64(), parent.Time.Uint64(), parent.Number, parent.Difficulty)
 	if expected.Cmp(header.Difficulty) != 0 {
 		return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
 	}
@@ -283,19 +283,17 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	return nil
 }
 
-// CalcDifficulty is the difficulty adjustment algorithm. It returns
-// the difficulty that a new block should have when created at time
-// given the parent block's time and difficulty.
+// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
+// that a new block should have when created at time given the parent block's time
+// and difficulty.
 //
 // TODO (karalabe): Move the chain maker into this package and make this private!
-func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Header) *big.Int {
-	next := new(big.Int).Add(parent.Number, common.Big1)
-	switch {
-	case config.IsHomestead(next):
-		return calcDifficultyHomestead(time, parent)
-	default:
-		return calcDifficultyFrontier(time, parent)
-	}
+func CalcDifficulty(config *params.ChainConfig, time, parentTime uint64, parentNumber, parentDiff *big.Int) *big.Int {
+	return big.NewInt(1)
+	//if config.IsHomestead(new(big.Int).Add(parentNumber, common.Big1)) {
+	//	return calcDifficultyHomestead(time, parentTime, parentNumber, parentDiff)
+	//}
+	//return calcDifficultyFrontier(time, parentTime, parentNumber, parentDiff)
 }
 
 // Some weird constants to avoid constant memory allocs for them.
@@ -308,7 +306,7 @@ var (
 // calcDifficultyHomestead is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
 // parent block's time and difficulty. The calculation uses the Homestead rules.
-func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
+func calcDifficultyHomestead(time, parentTime uint64, parentNumber, parentDiff *big.Int) *big.Int {
 	// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.mediawiki
 	// algorithm:
 	// diff = (parent_diff +
@@ -316,7 +314,7 @@ func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
 	//        ) + 2^(periodCount - 2)
 
 	bigTime := new(big.Int).SetUint64(time)
-	bigParentTime := new(big.Int).Set(parent.Time)
+	bigParentTime := new(big.Int).SetUint64(parentTime)
 
 	// holds intermediate values to make the algo easier to read & audit
 	x := new(big.Int)
@@ -332,16 +330,16 @@ func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
 		x.Set(bigMinus99)
 	}
 	// (parent_diff + parent_diff // 2048 * max(1 - (block_timestamp - parent_timestamp) // 10, -99))
-	y.Div(parent.Difficulty, params.DifficultyBoundDivisor)
+	y.Div(parentDiff, params.DifficultyBoundDivisor)
 	x.Mul(y, x)
-	x.Add(parent.Difficulty, x)
+	x.Add(parentDiff, x)
 
 	// minimum difficulty can ever be (before exponential factor)
 	if x.Cmp(params.MinimumDifficulty) < 0 {
 		x.Set(params.MinimumDifficulty)
 	}
 	// for the exponential factor
-	periodCount := new(big.Int).Add(parent.Number, common.Big1)
+	periodCount := new(big.Int).Add(parentNumber, common.Big1)
 	periodCount.Div(periodCount, expDiffPeriod)
 
 	// the exponential factor, commonly referred to as "the bomb"
@@ -357,25 +355,25 @@ func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
 // calcDifficultyFrontier is the difficulty adjustment algorithm. It returns the
 // difficulty that a new block should have when created at time given the parent
 // block's time and difficulty. The calculation uses the Frontier rules.
-func calcDifficultyFrontier(time uint64, parent *types.Header) *big.Int {
+func calcDifficultyFrontier(time, parentTime uint64, parentNumber, parentDiff *big.Int) *big.Int {
 	diff := new(big.Int)
-	adjust := new(big.Int).Div(parent.Difficulty, params.DifficultyBoundDivisor)
+	adjust := new(big.Int).Div(parentDiff, params.DifficultyBoundDivisor)
 	bigTime := new(big.Int)
 	bigParentTime := new(big.Int)
 
 	bigTime.SetUint64(time)
-	bigParentTime.Set(parent.Time)
+	bigParentTime.SetUint64(parentTime)
 
 	if bigTime.Sub(bigTime, bigParentTime).Cmp(params.DurationLimit) < 0 {
-		diff.Add(parent.Difficulty, adjust)
+		diff.Add(parentDiff, adjust)
 	} else {
-		diff.Sub(parent.Difficulty, adjust)
+		diff.Sub(parentDiff, adjust)
 	}
 	if diff.Cmp(params.MinimumDifficulty) < 0 {
 		diff.Set(params.MinimumDifficulty)
 	}
 
-	periodCount := new(big.Int).Add(parent.Number, common.Big1)
+	periodCount := new(big.Int).Add(parentNumber, common.Big1)
 	periodCount.Div(periodCount, expDiffPeriod)
 	if periodCount.Cmp(common.Big1) > 0 {
 		// diff = diff + 2^(periodCount - 2)
@@ -437,7 +435,8 @@ func (ethash *Ethash) Prepare(chain consensus.ChainReader, header *types.Header)
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	header.Difficulty = CalcDifficulty(chain.Config(), header.Time.Uint64(), parent)
+	header.Difficulty = CalcDifficulty(chain.Config(), header.Time.Uint64(),
+		parent.Time.Uint64(), parent.Number, parent.Difficulty)
 
 	return nil
 }

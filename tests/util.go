@@ -18,6 +18,7 @@ package tests
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"os"
@@ -160,8 +161,8 @@ func NewEVMEnvironment(vmTest bool, chainConfig *params.ChainConfig, statedb *st
 
 	origin := common.HexToAddress(tx["caller"])
 	if len(tx["secretKey"]) > 0 {
-		key, _ := crypto.HexToECDSA(tx["secretKey"])
-		origin = crypto.PubkeyToAddress(key.PublicKey)
+		key, _ := hex.DecodeString(tx["secretKey"])
+		origin = crypto.PubkeyToAddress(crypto.ToECDSA(key).PublicKey)
 	}
 
 	var to *common.Address

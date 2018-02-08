@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"runtime/pprof"
 	"time"
 
 	goruntime "runtime"
@@ -109,19 +108,6 @@ func runCmd(ctx *cli.Context) error {
 		},
 	}
 
-	if cpuProfilePath := ctx.GlobalString(CPUProfileFlag.Name); cpuProfilePath != "" {
-		f, err := os.Create(cpuProfilePath)
-		if err != nil {
-			fmt.Println("could not create CPU profile: ", err)
-			os.Exit(1)
-		}
-		if err := pprof.StartCPUProfile(f); err != nil {
-			fmt.Println("could not start CPU profile: ", err)
-			os.Exit(1)
-		}
-		defer pprof.StopCPUProfile()
-	}
-
 	tstart := time.Now()
 	if ctx.GlobalBool(CreateFlag.Name) {
 		input := append(code, common.Hex2Bytes(ctx.GlobalString(InputFlag.Name))...)
@@ -139,27 +125,12 @@ func runCmd(ctx *cli.Context) error {
 		fmt.Println(string(statedb.Dump()))
 	}
 
-	if memProfilePath := ctx.GlobalString(MemProfileFlag.Name); memProfilePath != "" {
-		f, err := os.Create(memProfilePath)
-		if err != nil {
-			fmt.Println("could not create memory profile: ", err)
-			os.Exit(1)
-		}
-		if err := pprof.WriteHeapProfile(f); err != nil {
-			fmt.Println("could not write memory profile: ", err)
-			os.Exit(1)
-		}
-		f.Close()
-	}
-
 	if ctx.GlobalBool(DebugFlag.Name) {
 		fmt.Fprintln(os.Stderr, "#### TRACE ####")
 		vm.WriteTrace(os.Stderr, logger.StructLogs())
 		fmt.Fprintln(os.Stderr, "#### LOGS ####")
 		vm.WriteLogs(os.Stderr, statedb.Logs())
-	}
 
-	if ctx.GlobalBool(StatDumpFlag.Name) {
 		var mem goruntime.MemStats
 		goruntime.ReadMemStats(&mem)
 		fmt.Fprintf(os.Stderr, `evm execution time: %v

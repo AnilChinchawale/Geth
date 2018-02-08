@@ -47,14 +47,11 @@ var (
 		// boring stuff
 		"vendor/", "tests/files/", "build/",
 		// don't relicense vendored sources
-		"cmd/internal/browser",
-		"consensus/ethash/xor.go",
-		"crypto/bn256/",
-		"crypto/ecies/",
+		"crypto/sha3/", "crypto/ecies/", "log/",
 		"crypto/secp256k1/curve.go",
-		"crypto/sha3/",
+		"consensus/ethash/xor.go",
 		"internal/jsre/deps",
-		"log/",
+		"cmd/internal/browser",
 		// don't license generated files
 		"contracts/chequebook/contract/",
 		"contracts/ens/contract/",
